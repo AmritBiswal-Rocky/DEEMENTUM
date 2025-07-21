@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { signInWithGoogle, generateFirebaseToken } from '../firebaseClient';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { FaSpinner } from 'react-icons/fa'; // ✅ spinner icon
 
 const PredictionComponent = () => {
   const [input, setInput] = useState('');
@@ -47,9 +48,9 @@ const PredictionComponent = () => {
       <button
         disabled={!input || loading}
         onClick={handlePredict}
-        className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-4 py-2 rounded transition"
+        className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-4 py-2 rounded flex items-center justify-center gap-2 transition"
       >
-        {loading ? 'Predicting…' : '🔮 Predict'}
+        {loading ? <FaSpinner className="animate-spin" /> : '🔮 Predict'}
       </button>
 
       {!result && (

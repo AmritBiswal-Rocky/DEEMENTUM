@@ -1,41 +1,49 @@
 // ──────────────────────────────────────────────────────────
 // src/hooks/useAuth.jsx
-// Centralised Firebase Auth context + hook
+// Centralised Firebase Auth + WebSocket context
 // ──────────────────────────────────────────────────────────
-
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { getAuth, onAuthStateChanged } from 'firebase/auth';
-import { app as firebaseApp } from '../firebaseClient'; // ← Path to your Firebase app
+import { app as firebaseApp } from '../firebaseClient'; // Firebase app
+import { connectSocket, disconnectSocket } from '../socket'; // WS helpers
 import PropTypes from 'prop-types';
 
-// Initialise Firebase Auth from the already‑initialised app
+// ───────── Firebase Auth instance (already initialised) ─────────
 const auth = getAuth(firebaseApp);
 
-// Create a context with sensible defaults
-const AuthContext = createContext({
-  user: null,
-  loading: true,
-});
+// Context default shape
+const AuthContext = createContext({ user: null, loading: true });
 
 // ──────────────────────────────────────────
-// <AuthProvider> — wrap your app once (in main.jsx)
+// <AuthProvider> — wrap your app once (see main.jsx)
 // ──────────────────────────────────────────
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Listen for auth state changes
+    // Listen for login / logout
     const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
       setUser(firebaseUser || null);
       setLoading(false);
+
+      /* ───────── WebSocket lifecycle ───────── */
+      if (firebaseUser) {
+        connectSocket(firebaseUser.uid); // login → connect / reconnect
+      } else {
+        disconnectSocket(); // logout → disconnect
+      }
     });
 
-    // Clean up listener on unmount
-    return () => unsubscribe();
+    // Cleanup on provider unmount
+    return () => {
+      unsubscribe();
+      disconnectSocket();
+    };
   }, []);
 
-  return <AuthContext.Provider value={{ user, loading }}>{children}</AuthContext.Provider>;
+  const value = { user, loading };
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 AuthProvider.propTypes = {
@@ -43,12 +51,12 @@ AuthProvider.propTypes = {
 };
 
 // ──────────────────────────────────────────
-// Custom hook — always returns { user, loading }
+// useAuth — handy hook → { user, loading }
 // ──────────────────────────────────────────
 export const useAuth = () => {
-  const context = useContext(AuthContext);
-  if (!context) {
+  const ctx = useContext(AuthContext);
+  if (!ctx) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
-  return context;
+  return ctx;
 };
